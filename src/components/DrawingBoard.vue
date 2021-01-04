@@ -1,6 +1,6 @@
 <template>
   <div class="container">
-    <canvas id="drawing-board"></canvas>
+    <canvas id="drawing-board" ref="drawingboard"></canvas>
     <!--  <div class="bg-btn"></div>
     <div class="color-group" id="bgGroup">
         <h3>选择背景颜色:</h3>
@@ -28,21 +28,30 @@
           :class="{ active: brushActive }"
           id="brush"
           title="画笔"
-          @click=";(brushActive = true), (eraserEnabled = false)"
+          @click="
+            (brushActive = true),
+              (eraserEnabled = false),
+              (brushDetailActive = true)
+          "
         ></button>
         <button
           class="eraser"
           :class="{ active: eraserEnabled }"
           id="eraser"
           title="橡皮擦"
-          @click=";(brushActive = false), (eraserEnabled = true)"
+          @click="(brushActive = false), (eraserEnabled = true)"
         ></button>
         <button class="clear" id="clear" title="清屏"></button>
         <button class="undo" id="undo" title="撤销"></button>
         <button class="redo" id="redo" title="再做"></button>
       </div>
     </div>
-    <div class="pen-detail" id="penDetail">
+    <div
+      class="pen-detail"
+      :class="{ active: brushDetailActive }"
+      id="penDetail"
+      ref="penDetail"
+    >
       <i class="closeBtn"></i>
       <!-- <p>笔类型</p>
         <ul class="pen-type clearfix">
@@ -71,7 +80,7 @@
 </template>
 <script>
 export default {
-  name: 'DrawingBoard',
+  name: "DrawingBoard",
   data() {
     return {
       canvas: {},
@@ -80,22 +89,23 @@ export default {
       brushActive: true,
       eraserEnabled: false,
       undoActive: false,
+      brushDetailActive: false,
 
       radius: 5,
       lineWidth: 2,
       canvasHistory: [],
       step: -1,
-    }
+    };
   },
   created() {},
   mounted() {
-    this.canvas = document.getElementById('drawing-board')
-    console.log(this.canvas)
-    this.context = this.canvas.getContext('2d')
+    this.canvas = document.getElementById("drawing-board");
+    console.log(this.canvas);
+    this.context = this.canvas.getContext("2d");
 
-    this.resizeCanvas()
-    this.mouseListner()
-    window.dispatchEvent(new Event('resize')) // 触发resize
+    this.resizeCanvas();
+    this.mouseListner();
+    window.dispatchEvent(new Event("resize")); // 触发resize
   },
   methods: {
     mouseListner() {
@@ -103,100 +113,99 @@ export default {
       let lastPoint = {
         x: 0,
         y: 0,
-      }
+      };
       if (document.body.ontouchstart !== undefined) {
         this.canvas.ontouchstart = (e) => {
-          this.painting = true
-          let x1 = e.touches[0].clientX
-          let y1 = e.touches[0].clientY
-          lastPoint = { x: x1, y: y1 }
+          this.painting = true;
+          let x1 = e.touches[0].clientX;
+          let y1 = e.touches[0].clientY;
+          lastPoint = { x: x1, y: y1 };
           if (this.eraserEnabled) {
             //要使用eraser
-            this.context.save()
-            this.context.globalCompositeOperation = 'destination-out'
-            this.context.beginPath()
-            this.radius = this.lineWidth / 2 > 5 ? this.lineWidth / 2 : 5
-            this.context.arc(x1, y1, this.radius, 0, 2 * Math.PI)
-            this.context.clip()
-            this.context.clearRect(0, 0, this.canvas.width, this.canvas.height)
-            this.context.restore()
+            this.context.save();
+            this.context.globalCompositeOperation = "destination-out";
+            this.context.beginPath();
+            this.radius = this.lineWidth / 2 > 5 ? this.lineWidth / 2 : 5;
+            this.context.arc(x1, y1, this.radius, 0, 2 * Math.PI);
+            this.context.clip();
+            this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            this.context.restore();
           }
-        }
-        this.canvas.ontouchmove = e => {
-          let x1 = lastPoint['x']
-          let y1 = lastPoint['y']
-          let x2 = e.touches[0].clientX
-          let y2 = e.touches[0].clientY
+        };
+        this.canvas.ontouchmove = (e) => {
+          let x1 = lastPoint["x"];
+          let y1 = lastPoint["y"];
+          let x2 = e.touches[0].clientX;
+          let y2 = e.touches[0].clientY;
           if (!this.painting) {
-            return
+            return;
           }
           if (this.eraserEnabled) {
-            this.moveHandler(x1, y1, x2, y2)
+            this.moveHandler(x1, y1, x2, y2);
             //记录最后坐标
-            lastPoint['x'] = x2
-            lastPoint['y'] = y2
+            lastPoint["x"] = x2;
+            lastPoint["y"] = y2;
           } else {
-            let newPoint = { x: x2, y: y2 }
-            this.drawLine(lastPoint.x, lastPoint.y, newPoint.x, newPoint.y)
-            lastPoint = newPoint
+            let newPoint = { x: x2, y: y2 };
+            this.drawLine(lastPoint.x, lastPoint.y, newPoint.x, newPoint.y);
+            lastPoint = newPoint;
           }
-        }
+        };
         this.canvas.ontouchend = () => {
-          this.painting = false
-          this.canvasDraw()
-        }
+          this.painting = false;
+          this.canvasDraw();
+        };
       } else {
         // 鼠标按下事件
         this.canvas.onmousedown = (e) => {
-          this.painting = true
-          let x1 = e.clientX
-          let y1 = e.clientY
-          console.log('mousedown', this.painting)
+          this.painting = true;
+          let x1 = e.clientX;
+          let y1 = e.clientY;
+          console.log("mousedown", this.painting);
           if (this.eraserEnabled) {
             //要使用eraser
             //鼠标第一次点下的时候擦除一个圆形区域，同时记录第一个坐标点
-            this.context.save()
-            this.context.globalCompositeOperation = 'destination-out'
-            this.context.beginPath()
-            this.radius = this.lWidth / 2 > 5 ? this.lWidth / 2 : 5
-            this.context.arc(x1, y1, this.radius, 0, 2 * Math.PI)
-            this.context.clip()
-            this.context.clearRect(0, 0, this.canvas.width, this.canvas.height)
-            this.context.restore()
-            lastPoint = { x: x1, y: y1 }
+            this.context.save();
+            this.context.globalCompositeOperation = "destination-out";
+            this.context.beginPath();
+            this.radius = this.lWidth / 2 > 5 ? this.lWidth / 2 : 5;
+            this.context.arc(x1, y1, this.radius, 0, 2 * Math.PI);
+            this.context.clip();
+            this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            this.context.restore();
+            lastPoint = { x: x1, y: y1 };
           } else {
-            lastPoint = { x: x1, y: y1 }
+            lastPoint = { x: x1, y: y1 };
           }
-        }
+        };
 
         // 鼠标移动事件
-        this.canvas.onmousemove = e => {
-          let x1 = lastPoint['x']
-          let y1 = lastPoint['y']
-          let x2 = e.clientX
-          let y2 = e.clientY
+        this.canvas.onmousemove = (e) => {
+          let x1 = lastPoint["x"];
+          let y1 = lastPoint["y"];
+          let x2 = e.clientX;
+          let y2 = e.clientY;
           if (!this.painting) {
-            
-            return
+            return;
           }
           if (this.eraserEnabled) {
-            this.moveHandler(x1, y1, x2, y2)
+            this.moveHandler(x1, y1, x2, y2);
             //记录最后坐标
-            lastPoint['x'] = x2
-            lastPoint['y'] = y2
+            lastPoint["x"] = x2;
+            lastPoint["y"] = y2;
           } else {
-            let newPoint = { x: x2, y: y2 }
-            
-            this.drawLine(lastPoint.x, lastPoint.y, newPoint.x, newPoint.y)
-            lastPoint = newPoint
+            let newPoint = { x: x2, y: y2 };
+
+            this.drawLine(lastPoint.x, lastPoint.y, newPoint.x, newPoint.y);
+            lastPoint = newPoint;
           }
-        }
+        };
 
         // 鼠标松开事件
         this.canvas.onmouseup = () => {
-          this.painting = false
-          this.canvasDraw()
-        }
+          this.painting = false;
+          this.canvasDraw();
+        };
       }
     },
     resizeCanvas() {
@@ -206,40 +215,56 @@ export default {
           0,
           this.canvas.width,
           this.canvas.height
-        )
-        let pageWidth = document.documentElement.clientWidth
-        let pageHeight = document.documentElement.clientHeight
+        );
+        let pageWidth = document.documentElement.clientWidth;
+        let pageHeight = document.documentElement.clientHeight;
 
-        this.canvas.width = pageWidth
-        this.canvas.height = pageHeight
-        this.context.putImageData(imgData, 0, 0)
-      }
+        this.canvas.width = pageWidth;
+        this.canvas.height = pageHeight;
+        this.context.putImageData(imgData, 0, 0);
+      };
     },
     drawLine(x1, y1, x2, y2) {
-      this.context.beginPath()
-      this.context.lineWidth = this.lineWidth
-      this.context.lineCap = 'round' // 设置末端样式
-      this.context.lineJoin = 'round' //设置线条与线条结合处样式
-      this.context.moveTo(x1, y1)
-      this.context.lineTo(x2, y2)
-      this.context.stroke()
-      this.context.closePath()
+      this.context.beginPath();
+      this.context.lineWidth = this.lineWidth;
+      this.context.lineCap = "round"; // 设置末端样式
+      this.context.lineJoin = "round"; //设置线条与线条结合处样式
+      this.context.moveTo(x1, y1);
+      this.context.lineTo(x2, y2);
+      this.context.stroke();
+      this.context.closePath();
     },
-    moveHandler() {},
+    moveHandler(x1, y1, x2, y2) {
+      let canvasRect = this.$refs.drawingboard.getBoundingClientRect();
+      x1 = x2 - canvasRect.left;
+      y1 = y2 - canvasRect.top;
+      console.log(x2, y2, x2 - canvasRect.left, y2 - canvasRect.top);
+      this.context.save();
+      this.context.beginPath();
+      this.context.globalCompositeOperation = "destination-out";
+      this.radius = this.lineWidth / 2 > 5 ? this.lineWidth / 2 : 5;
+      this.context.arc(x1, y1, this.radius, 0, 2 * Math.PI);
+      this.context.clip();
+      this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+      this.context.restore();
+    },
     canvasDraw() {
-      this.step++
+      this.step++;
       // if (this.step < this.canvasHistory.length) {
       //   this.canvasHistory.length = this.step // 截断数组
       // }
       // 添加新的绘制到历史记录
-      this.canvasHistory.push(this.canvas.toDataURL())
-      console.log(this.canvasHistory)
+      this.canvasHistory.push(this.canvas.toDataURL());
+      // console.log(this.canvasHistory);
       if (this.step > 0) {
-        this.undoActive = true
+        this.undoActive = true;
       }
     },
+    handleBrushClick() {
+      this.$refs.penDetail.cla;
+    },
   },
-}
+};
 </script>
 <style scoped>
 * {
@@ -260,7 +285,7 @@ li {
   list-style: none;
 }
 .clearfix::after {
-  content: '';
+  content: "";
   display: block;
   clear: both;
 }
@@ -270,7 +295,7 @@ li {
   left: 25px;
   width: 50px;
   height: 50px;
-  background: url('../assets/image/ic_droplet1.png') center center no-repeat;
+  background: url("../assets/image/ic_droplet1.png") center center no-repeat;
   background-size: 30px 30px;
   border-radius: 50%;
   box-shadow: 0 1px 2px 0 rgba(32, 33, 36, 0.28);
@@ -312,29 +337,29 @@ li {
   border: 2px solid transparent;
 }
 .tools button.save {
-  background-image: url('../assets/image/save.png');
+  background-image: url("../assets/image/save.png");
 }
 .tools button.brush {
-  background-image: url('../assets/image/pen.png');
+  background-image: url("../assets/image/pen.png");
 }
 .tools button.eraser {
-  background-image: url('../assets/image/eraser.png');
+  background-image: url("../assets/image/eraser.png");
 }
 .tools button.clear {
-  background-image: url('../assets/image/clear.png');
+  background-image: url("../assets/image/clear.png");
 }
 .tools button.undo {
-  background-image: url('../assets/image/undo_sel.png');
+  background-image: url("../assets/image/undo_sel.png");
 }
 .tools button.redo {
-  background-image: url('../assets/image/redo_sel.png');
+  background-image: url("../assets/image/redo_sel.png");
 }
 .tools button.undo.active {
-  background-image: url('../assets/image/undo.png');
+  background-image: url("../assets/image/undo.png");
   border-color: transparent;
 }
 .tools button.redo.active {
-  background-image: url('../assets/image/redo.png');
+  background-image: url("../assets/image/redo.png");
   border-color: transparent;
 }
 .tools button.active {
@@ -361,7 +386,7 @@ li {
   right: 8px;
   width: 32px;
   height: 32px;
-  background: url('../assets/image/close.png') center center no-repeat;
+  background: url("../assets/image/close.png") center center no-repeat;
   cursor: pointer;
 }
 .color-group.active {
@@ -386,7 +411,7 @@ li {
   position: absolute;
   left: 4px;
   top: 4px;
-  content: '';
+  content: "";
   display: block;
   width: 32px;
   height: 32px;
@@ -427,16 +452,16 @@ li {
   cursor: pointer;
 }
 .pen-detail .pen-type li.pen {
-  background-image: url('../assets/image/pen_sel.png');
+  background-image: url("../assets/image/pen_sel.png");
 }
 .pen-detail .pen-type li.pen.active {
-  background-image: url('../assets/image/pen.png');
+  background-image: url("../assets/image/pen.png");
 }
 .pen-detail .pen-type li.line {
-  background-image: url('../assets/image/line_sel.png');
+  background-image: url("../assets/image/line_sel.png");
 }
 .pen-detail .pen-type li.line.active {
-  background-image: url('../assets/image/line.png');
+  background-image: url("../assets/image/line.png");
 }
 .pen-detail .pen-type li.circle {
   border-radius: 50%;
@@ -478,18 +503,18 @@ li {
   width: 2px;
   height: 2px;
 }
-input[type='range'] {
+input[type="range"] {
   -webkit-appearance: none;
   width: 180px;
   height: 24px;
   outline: none;
 }
-input[type='range']::-webkit-slider-runnable-track {
+input[type="range"]::-webkit-slider-runnable-track {
   background-color: #dbdbdb;
   height: 4px;
   border-radius: 5px;
 }
-input[type='range']::-webkit-slider-thumb {
+input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   /* border: 5px solid #fff; */
   width: 12px;
@@ -513,7 +538,7 @@ input[type='range']::-webkit-slider-thumb {
   position: absolute;
   left: 3px;
   top: 3px;
-  content: '';
+  content: "";
   display: block;
   width: 24px;
   height: 24px;
